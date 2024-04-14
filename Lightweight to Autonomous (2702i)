@@ -1,0 +1,68 @@
+####################################################
+# Passwort ist im Default "Cisco"
+# "show version zeigt das aktuelle Image an: k9w7 = Autonomous / k9w8 = Leightweight
+####################################################
+
+
+
+####################################################
+#
+# Ohne Mode-Button
+#
+####################################################
+
+# Falls bereits ein Autonomous-Image auf dem Switch vorhanden ist reicht ein Befehl:
+# Hier mit Fehler
+AP#capwap ap autonomous
+ Convert to Autonomous image. Proceed? (yes/[no]): yes
+No Autonomous image found! Conversion failed.
+AP#
+
+# Debug aktivieren, IP-Adresse vergeben und das File über tftp oder http herunterladen und installieren:
+debug capwap console cli
+debug capwap client no-reload
+capwap ap ip address 10.0.0.2 255.255.255.0
+capwap ap ip default-gateway 10.0.0.1
+
+archive download-sw /force /overwrite http://10.0.0.3/ap3g2-k9w7-tar.153-3.JPK2.tar
+archive download-sw /force /overwrite tftp://10.0.0.3/ap3g2-k9w7-tar.153-3.JPK2.tar
+	
+# Falls der AP immer noch mit Lightweight startet kann jetzt konvertiert werden
+AP#capwap ap autonomous
+ Convert to Autonomous image. Proceed? (yes/[no]): yes
+AP#
+
+
+####################################################
+#
+# Mit Mode-Button
+#
+####################################################
+
+# AP vom Strom trennen
+# Mode-Button drücken und halten
+# Warten bis die LED dauerhaft rot leuchtet
+# Mode Button loslassen
+
+# IP Adresse konfigurieren (ensprechend anpasen)
+set IP_ADDR 10.0.0.2
+set NETMASK 255.255.255.0
+set DEFAULT_ROUTER 10.0.0.1
+
+# Initialisieren
+tftp_init
+ether_init
+flash_init
+
+# Image herunterladen und entpacken
+tar -xtract tftp://10.0.0.3/ap3g2-k9w7-tar.153-3.JPK2.tar flash:
+# Prüfen
+dir flash:
+# Boot-Variable setzen, ACHTUNG- Pfad ist nicht identisch zum TAR-Filename
+set boot flash:/ap3g2-k9w7-mx.153-3.JPK2/ap3g2-k9w7-mx.153-3.JPK2
+# Einstellungen prüfen
+set
+# Booten
+boot
+
+
