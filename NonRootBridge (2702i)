@@ -41,6 +41,7 @@ hostname <AP-Name>
 no aaa new-model
 enable secret <AP-Passwort>
 username <Admin-Benutzername> password <Admin-Passwort>
+no username cisco
 
 # Domain + kein DNS Lookup
 ip domain name <Domain z.B. "domain.internal">
