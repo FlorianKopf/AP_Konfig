@@ -1,0 +1,220 @@
+#########################################################################################################################################
+#
+#    Non-Root-Bridge
+#   ---------------------------------------------------------------
+#
+# Diese Konfiguration wird verwendet, um drei VLANs über eine Point-to-Point Bridge zu koppeln. Es gibt Konfigurationen, wo der AP
+# gleichzeitig noch Clients verwalten kann, dies wird hier jedoch nicht verwendet. Der Code ist generisch und kann um weiter VLANs 
+# erweitert oder reduziert werden. Das Erste Vlan sollte nativ sein, der Rest wird getaggt.
+# Die Konfiguration der Non-Root-Bridge unterscheidet sich nur minimal.
+#
+# Der Codeblock dient nur als Beispiel und muss angepasst werden. Variablen sind in "<>" und müssen ebenfalls angepasst werden.
+#
+# Für die Konfiguration wird nur das 5 GHz-Radio interface genutzt, es kann aber auch auf das 2,4 GHz-Radio gewechselt werden
+# (Interface "Dot11Radio0" = 2.4 GHz & "Dot11Radio1" = 5 GHz)
+#
+# Quellen:
+# https://community.cisco.com/t5/wireless-mobility-knowledge-base/autonomous-ap-and-bridge-basic-configuration-template/ta-p/3112198
+# https://mrncciew.com/2013/01/13/autonoumous-ap-wireless-bridges/
+#
+#########################################################################################################################################
+
+# Konigurations-Modus
+# Falls nach einen Passwort gefragt wird lautet dies "Cisco" Benutzer "cisco" acht Groß- und Kleinschreibung wichtig.
+#---------------------------------------------------------------
+enable 
+ configure terminal
+ 
+ 
+# Globale-Konfig
+#---------------------------------------------------------------
+
+# Log Settings
+no service pad
+service timestamps debug datetime localtime
+service timestamps log datetime localtime
+service password-encryption
+ip subnet-zero
+
+# Hostname + User + Login
+hostname <AP-Name>
+no aaa new-model
+enable secret <AP-Passwort>
+username <Admin-Benutzername> password <Admin-Passwort>
+
+# Domain + kein DNS Lookup
+ip domain name <Domain z.B. "domain.internal">
+no ip domain lookup
+
+# Zertifikat erzeugen
+crypto key generate rsa general-keys modulus 4096
+
+# Weberver aktiviern
+ip http server
+ip http authentication local
+ip http secure-server
+
+# Zugang per SSH aktivieren und Telnet deaktivieren
+ip ssh version 2
+line con 0
+ login local
+ logging synchronous
+line vty 0 4
+ login local
+ logging synchronous
+ transport input ssh
+line vty 5 15
+ login local
+ logging synchronous
+ transport input ssh
+
+# Uhrzeit
+clock timezone UTC +1 0
+clock summer-time EST recurring last Sun Mar 2:00 last Sun Oct 3:00
+sntp server 129.6.15.28
+sntp server 132.163.96.1
+no ip source-route
+
+
+# statische IP-Adresse konfigurieren
+#---------------------------------------------------------------
+
+interface BVI1
+ ip address <IP-Addresse> <Netzmaske>
+ no shut
+ no ip route-cache
+exit
+ip default-gateway <Gateway-IP>
+
+
+# alternativ DHCP IP-Adresse konfigurieren (hier auskommentiert, da statisch verwendet wird)
+#---------------------------------------------------------------
+
+#interface BVI1
+ # ip address dhcp client-id GigabitEthernet0 für DHCP
+ # no ip route-cache
+
+
+# VLANs auf dem AP anlegen
+#---------------------------------------------------------------
+
+dot11 vlan-name <VLAN-Name z.B. "LAN"> vlan <VLAN-ID z.B. "2">
+dot11 vlan-name <VLAN-Name z.B. "Gast"> vlan <VLAN-ID z.B. "4">
+dot11 vlan-name <VLAN-Name z.B. "IoT"> vlan <VLAN-ID z.B. "6">
+
+
+# WLAN SSID erstellen
+#---------------------------------------------------------------
+
+dot11 ssid <SSID-Name für die Bridge z.B. "WLAN-bridge">
+   vlan <z.B. 2>
+   authentication open 
+   infrastructure-ssid
+   authentication key-management wpa version 2
+   wpa-psk ascii <PSK z.B. "StrengGeheimerWifiKey!!!">
+
+
+# Radio-Interface konfigurieren
+#---------------------------------------------------------------
+
+interface Dot11Radio1.2
+ encapsulation dot1Q 2 native
+ no ip route-cache
+ bridge-group 1
+ bridge-group 1 spanning-disabled
+ no shutdown
+
+interface Dot11Radio1.4
+ encapsulation dot1Q 4
+ no ip route-cache
+ bridge-group 4
+ bridge-group 4 spanning-disabled
+ no shutdown
+
+interface Dot11Radio1.6
+ encapsulation dot1Q 6
+ no ip route-cache
+ bridge-group 6
+ bridge-group 6 spanning-disabled
+ no shutdown
+
+
+# 2,4 GHz Radio deaktivieren (die anderen Befehle sind nur relevant, wenn die Bridge auf 2,4 GHz laufen soll)
+#---------------------------------------------------------------
+
+interface Dot11Radio0
+ shutdown
+ #no ip address
+ #no ip route-cache
+ #encryption vlan <VLAN-ID z.B. "2"> mode ciphers aes-ccm 
+ #encryption vlan <VLAN-ID z.B. "4"> mode ciphers aes-ccm
+ #encryption vlan <VLAN-ID z.B. "6"> mode ciphers aes-ccm 
+ #ssid <wie oben angelegt z.B. "WLAN-bridge">
+ #station-role non-root bridge  
+ ##channel least-congested 1 6 11
+
+
+# 5 GHz Radio konfigurieren
+#---------------------------------------------------------------
+
+interface Dot11Radio1
+ no ip address
+ no ip route-cache
+ encryption vlan <VLAN-ID z.B. "2"> mode ciphers aes-ccm 
+ encryption vlan <VLAN-ID z.B. "4"> mode ciphers aes-ccm
+ encryption vlan <VLAN-ID z.B. "6"> mode ciphers aes-ccm 
+ ssid <wie oben angelegt z.B. "WLAN-bridge">
+ station-role non-root bridge  
+ antenna gain 0
+ #no dfs band block
+ #channel dfs
+ power client max
+ power local max
+ no shutdown
+
+
+# Configure LAN-Interface
+#---------------------------------------------------------------
+
+interface GigabitEthernet0
+ no ip address
+ no ip route-cache
+ duplex auto
+ speed auto
+
+interface GigabitEthernet0.2
+ encapsulation dot1Q 2 native
+ no ip route-cache
+ bridge-group 1
+ bridge-group 1 spanning-disabled
+
+interface GigabitEthernet0.4
+ encapsulation dot1Q 4
+ no ip route-cache
+ bridge-group 4
+ bridge-group 4 spanning-disabled
+
+interface GigabitEthernet0.6
+ encapsulation dot1Q 6
+ no ip route-cache
+ bridge-group 6
+ bridge-group 6 spanning-disabled
+
+
+# Konfiguration speichern
+#---------------------------------------------------------------
+
+end
+write memory
+
+
+#########################################################################################################################################
+#
+# Show Befehle
+#
+#########################################################################################################################################
+
+show dot11 associations
+show dot11 associations all-clients
+show dot11 associations aaaa.bbbb.cccc
+
