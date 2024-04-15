@@ -1,0 +1,271 @@
+###########################################################################################################################################################
+#
+#    Standalone Access Point Konfiguration
+#   ---------------------------------------------------------------
+#
+# Diese Konfiguration strahlt 3 SSIDs aus und mappt diese auf 3 VLAN
+#    1.) VLAN 2 (Nativ / untagged) / SSID: "Internes-WLAN" / PSK: "geheimerWifiKey1"
+#    2.) VLAN 4 (tagged) / SSID: "Gast-WLAN" / PSK: "geheimerWifiKey2"
+#    3.) VLAN 6 (tagged) / SSID: "IoT-WLAN" / PSK: "geheimerWifiKey3"
+#
+# Der Codeblock dient nur als Beispiel und muss angepasst werden. Variablen sind in "<>" und müssen ebenfalls angepasst werden.
+#
+# Alle SSIDs werden auf 2,4 und 5 GHz ausgestrahlt. Dies kann ebenfalls angepasst werden. (Interface "Dot11Radio0" = 2.4 GHz & "Dot11Radio1" = 5 GHz)
+#
+# https://www.cisco.com/c/en/us/td/docs/wireless/access_point/15-3-3/configuration/guide/cg15-3-3/cg15-3-3-chap4-first.html#39486
+# https://www.cisco.com/c/en/us/support/docs/wireless-mobility/service-set-identifier-ssid/210516-SSIDs-and-VLANs-configuration-on-Autonom.html
+# https://blog.dchidell.com/2016/09/10/cisco-autonomous-wireless-network-at-home/
+# https://nickjvturner.com/configure-your-autonomous-cisco-ap-with-multiple-ssids/
+#
+###########################################################################################################################################################
+
+
+# Konigurations-Modus
+#---------------------------------------------------------------
+
+enable 
+ configure terminal
+ 
+ 
+# Globale-Konfig
+#---------------------------------------------------------------
+
+# Log Settings
+no service pad
+service timestamps debug datetime localtime
+service timestamps log datetime localtime
+service password-encryption
+ip subnet-zero
+
+# Hostname + User + Login
+hostname <AP-Name>
+no aaa new-model
+enable secret <AP-Passwort>
+username <Admin-Benutzername> password <Admin-Passwort>
+no username cisco
+
+# Domain + kein DNS Lookup
+ip domain name <Domain z.B. "domain.internal">
+no ip domain lookup
+
+# Zertifikat erzeugen
+crypto key generate rsa general-keys modulus 4096
+
+# Weberver aktiviern
+ip http server
+ip http authentication local
+ip http secure-server
+
+# Zugang per SSH aktivieren und Telnet deaktivieren
+ip ssh version 2
+line con 0
+ login local
+ logging synchronous
+line vty 0 4
+ login local
+ logging synchronous
+ transport input ssh
+line vty 5 15
+ login local
+ logging synchronous
+ transport input ssh
+
+# Uhrzeit
+clock timezone UTC +1 0
+clock summer-time EST recurring last Sun Mar 2:00 last Sun Oct 3:00
+sntp server 129.6.15.28
+sntp server 132.163.96.1
+no ip source-route
+
+
+# statische IP-Adresse konfigurieren
+#---------------------------------------------------------------
+
+interface BVI1
+ ip address <IP-Addresse> <Netzmaske>
+ no shut
+ no ip route-cache
+exit
+ip default-gateway <Gateway-IP>
+
+
+# alternativ DHCP IP-Adresse konfigurieren (hier auskommentiert, da statisch verwendet wird)
+#---------------------------------------------------------------
+
+#interface BVI1
+ # ip address dhcp client-id GigabitEthernet0 für DHCP
+ # no ip route-cache
+
+
+# VLANs auf dem AP anlegen:
+#---------------------------------------------------------------
+
+dot11 vlan-name <VLAN-Name z.B. "Intern"> vlan <VLAN-ID z.B.: "2">
+dot11 vlan-name <VLAN-Name z.B. "Gast"> vlan <VLAN-ID z.B.: "4">
+dot11 vlan-name <VLAN-Name z.B. "IoT"> vlan <VLAN-ID z.B.: "6">
+
+
+# WLAN SSID erstellen
+#---------------------------------------------------------------
+ 
+dot11 ssid <WLAN-SSID NAME z.B. "Internes-WLAN">
+ vlan <VLAN ID z.B. "2">
+ authentication open
+ authentication key-management wpa version 2
+ mbssid guest-mode
+ wpa-psk ascii <WLAN-PSK für das Interne WLAN z.B. "geheimerWifiKey1">
+ 
+dot11 ssid <WLAN-SSID NAME z.B. "Gast-WLAN">
+ vlan <VLAN ID z.B. "4">
+ authentication open
+ authentication key-management wpa version 2
+ mbssid guest-mode
+ wpa-psk ascii <WLAN-PSK für das Gast WLAN z.B. "geheimerWifiKey2">
+
+dot11 ssid <WLAN-SSID NAME z.B. "IoT-WLAN">
+ vlan <VLAN ID z.B. "6">
+ authentication open
+ authentication key-management wpa version 2
+ mbssid guest-mode
+ wpa-psk ascii <WLAN-PSK für das IoT WLAN  z.B. "geheimerWifiKey3">
+
+
+
+# 2,4 GHz konfigurieren (aes-ccm = WPA2)
+#---------------------------------------------------------------
+ 
+interface Dot11Radio0
+ no ip address
+ encryption mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "2"> mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "4"> mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "6"> mode ciphers aes-ccm
+
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "Internes-WLAN">
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "Gast-WLAN">
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "IoT-WLAN">
+
+ antenna gain 0
+ stbc
+ beamform ofdm
+ mbssid
+ station-role root
+ channel least-congested 1 6 11
+ power client max
+ power local max
+ speed basic-12.0 18 24 36 48 54 m0. m1. m2. m3. m4. m5. m6. m7. m8. m9. m10. m11. m12. m13. m14. m15.
+ no shut
+ 
+ 
+#Sub-interfaces für VLAN-tagging: "native" bedeutet untagged, wenn der Switch alle VLANs tagged dann muss man es hier weglassen
+#---------------------------------------------------------------
+ 
+interface Dot11Radio0.2
+ encapsulation dot1Q 2 native
+ bridge-group 1
+ bridge-group 1 subscriber-loop-control
+ bridge-group 1 spanning-disabled
+ bridge-group 1 block-unknown-source
+ no bridge-group 1 source-learning
+ no bridge-group 1 unicast-flooding
+ no shutdown
+
+interface Dot11Radio0.4
+ encapsulation dot1Q 4
+ bridge-group 4
+ bridge-group 4 subscriber-loop-control
+ bridge-group 4 spanning-disabled
+ bridge-group 4 block-unknown-source
+ no bridge-group 4 source-learning
+ no bridge-group 4 unicast-flooding
+ no shutdown
+
+interface Dot11Radio0.6
+ encapsulation dot1Q 6
+ bridge-group 6
+ bridge-group 6 subscriber-loop-control
+ bridge-group 6 spanning-disabled
+ bridge-group 6 block-unknown-source
+ no bridge-group 6 source-learning
+ no bridge-group 6 unicast-flooding
+ no shutdown
+ 
+
+# 5 GHz konfigurieren (aes-ccm = WPA2)
+#---------------------------------------------------------------
+ 
+interface Dot11Radio1
+ no ip address
+ encryption mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "2"> mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "4"> mode ciphers aes-ccm
+ encryption vlan <VLAN ID muss identisch sein wie angelegt z.B. "6"> mode ciphers aes-ccm
+
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "Internes-WLAN">
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "Gast-WLAN">
+ ssid <WLAN-SSID NAME muss identisch sein wie angelegt z.B. "IoT-WLAN">
+
+ antenna gain 0
+ no dfs band block
+ stbc
+ beamform ofdm
+ mbssid
+ channel dfs
+ station-role root
+ power client max
+ power local max
+ no shutdown
+ 
+
+#Sub-interfaces für VLAN-tagging: "native" bedeutet untagged, wenn der Switch alle VLANs tagged dann muss man es hier weglassen
+#---------------------------------------------------------------
+
+interface Dot11Radio1.2
+ encapsulation dot1Q 2 native
+ bridge-group 1
+ bridge-group 1 subscriber-loop-control
+ bridge-group 1 spanning-disabled
+ bridge-group 1 block-unknown-source
+ no bridge-group 1 source-learning
+ no bridge-group 1 unicast-flooding
+ no shutdown
+!
+interface Dot11Radio1.4
+ encapsulation dot1Q 4
+ bridge-group 4
+ bridge-group 4 subscriber-loop-control
+ bridge-group 4 spanning-disabled
+ bridge-group 4 block-unknown-source
+ no bridge-group 4 source-learning
+ no bridge-group 4 unicast-flooding
+ no shutdown
+
+interface Dot11Radio1.6
+ encapsulation dot1Q 6
+ bridge-group 6
+ bridge-group 6 subscriber-loop-control
+ bridge-group 6 spanning-disabled
+ bridge-group 6 block-unknown-source
+ no bridge-group 6 source-learning
+ no bridge-group 6 unicast-flooding
+ no shutdown
+
+
+# Konfiguration speichern
+#---------------------------------------------------------------
+
+end
+write memory
+
+
+ #########################################################################################################################################
+#
+# Show Befehle
+#
+#########################################################################################################################################
+
+show dot11 associations
+show dot11 associations all-clients
+show dot11 associations aaaa.bbbb.cccc
+show controllers dot11radio 0
+show controllers dot11radio 1
