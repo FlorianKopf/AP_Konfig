@@ -250,8 +250,14 @@ interface Dot11Radio1.6
  no bridge-group 6 unicast-flooding
  no shutdown
 
-# Wireless-Data und Interface verbinden
+# Lan-Interface konfigurieren
 #---------------------------------------------------------------
+
+interface GigabitEthernet0
+ no ip address
+ no ip route-cache
+ duplex auto
+ speed auto
 
 interface GigabitEthernet0.2
  encapsulation dot1Q 2 native
