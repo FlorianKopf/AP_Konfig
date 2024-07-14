@@ -250,6 +250,27 @@ interface Dot11Radio1.6
  no bridge-group 6 unicast-flooding
  no shutdown
 
+# Wireless-Data und Interface verbinden
+#---------------------------------------------------------------
+
+interface GigabitEthernet0.2
+ encapsulation dot1Q 2 native
+ bridge-group 1
+ bridge-group 1 spanning-disabled
+ no bridge-group 1 source-learning
+
+interface GigabitEthernet0.4
+ encapsulation dot1Q 4
+ bridge-group 4
+ bridge-group 4 spanning-disabled
+ no bridge-group 4 source-learning
+
+interface GigabitEthernet0.6
+ encapsulation dot1Q 6
+ bridge-group 6
+ bridge-group 6 spanning-disabled
+ no bridge-group 6 source-learning
+
 
 # Konfiguration speichern
 #---------------------------------------------------------------
